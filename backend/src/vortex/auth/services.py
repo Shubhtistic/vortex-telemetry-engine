@@ -49,7 +49,7 @@ class AuthService:
 
         # step 3 -> OrganizationMembership table: (org_id, user_id) -> role
         try:
-            membership = await MembershipService.get_membership(
+            membership = await MembershipService.get_active_membership(
                 db_session=db_session, org_id=org.id, user_id=user.id
             )
         except NotAMemberError:

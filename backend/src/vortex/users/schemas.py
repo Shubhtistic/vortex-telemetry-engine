@@ -5,6 +5,6 @@ from pydantic import BaseModel, EmailStr
 class UserResponse(BaseModel):
     id: UUID
     email: EmailStr
-    full_name: str | None
+    first_name: str
+    last_name: str
     is_active: bool
-    is_email_verified: bool

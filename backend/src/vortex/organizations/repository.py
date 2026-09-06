@@ -1,5 +1,5 @@
 from uuid import UUID
-from sqlalchemy import literal_column, select
+from sqlalchemy import func, literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.vortex.users.models import User
@@ -10,6 +10,7 @@ from src.vortex.shared.database import (
     check_exists,
     create,
     execute_query,
+    get_all,
     get_one_by_query,
 )
 
@@ -45,12 +46,13 @@ class MembershipRepository:
         return await create(instance=instance, db_session=db_session)
 
     @staticmethod
-    async def get_membership(
+    async def get_active_membership(
         db_session: AsyncSession, org_id: UUID, user_id: UUID
     ) -> OrganizationMembership | None:
         stmt = select(OrganizationMembership).where(
             OrganizationMembership.organization_id == org_id,
             OrganizationMembership.user_id == user_id,
+            OrganizationMembership.is_active == True,
         )
 
         return await get_one_by_query(stmt, db_session)
@@ -96,3 +98,52 @@ class MembershipRepository:
 
         result = await execute_query(query=stmt, db_session=db_session)
         return result.one_or_none()
+
+    @staticmethod
+    async def get_all_active_members(org_id: UUID, db_session, offset: int, limit: int):
+        """get all active members"""
+        count_q = (
+            select(func.count())
+            .select_from(OrganizationMembership)
+            .where(
+                OrganizationMembership.organization_id == org_id,
+                OrganizationMembership.is_active == True,
+            )
+        )
+
+        total_count = (
+            await execute_query(query=count_q, db_session=db_session)
+        ).scalar_one()
+
+        q = (
+            select(OrganizationMembership)
+            .where(
+                OrganizationMembership.organization_id == org_id,
+                OrganizationMembership.is_active == True,
+            )
+            .order_by(OrganizationMembership.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+
+        data = await get_all(stmt=q, db_session=db_session)
+
+        return data, total_count
+
+    @staticmethod
+    async def deactivate_member(
+        db_session: AsyncSession, org_id: UUID, user_id: UUID
+    ) -> UUID | str:
+        stmt = (
+            update(OrganizationMembership)
+            .where(
+                OrganizationMembership.organization_id == org_id,
+                OrganizationMembership.user_id == user_id,
+                OrganizationMembership.is_active == True,
+                OrganizationMembership.role != MembershipRole.owner,
+            )
+            .values(is_active=False)
+            .returning(OrganizationMembership.user_id)
+        )
+        result = await execute_query(stmt, db_session=db_session)
+        return result.scalar_one_or_none()

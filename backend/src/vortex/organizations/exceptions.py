@@ -33,3 +33,7 @@ class UserAlreadyMemberError(Exception):
     def __init__(self, org_id, email: str):
         self.org_id = org_id
         self.email = email
+
+
+class UserCannotBeDeletedError(Exception):
+    """raise when a user cant be deleted"""

@@ -1,7 +1,8 @@
+from datetime import datetime
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from .enums import InviteMembershipRole
+from .enums import InviteMembershipRole, MembershipRole
 
 
 class SignupRequest(BaseModel):
@@ -21,8 +22,18 @@ class InviteMemberRequest(BaseModel):
     role: InviteMembershipRole  # only "admin" or "analyst" accepted
 
 
-class OrganizationResponse(BaseModel):
-    id: UUID
-    name: str
-    slug: str
-    is_active: bool
+class MembershipRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: UUID | str
+    organization_id: UUID | str
+    role: MembershipRole
+    created_at: datetime
+
+
+class OrgMemberRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    user_id: UUID
+    role: MembershipRole
+    email: EmailStr
+    first_name: str
+    last_name: str

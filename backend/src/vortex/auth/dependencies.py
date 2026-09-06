@@ -50,7 +50,7 @@ async def _get_verified_membership(current_user: dict, db_session: DbSessionDep)
         )
 
     try:
-        membership = await MembershipRepository.get_membership(
+        membership = await MembershipRepository.get_active_membership(
             db_session=db_session, org_id=org_id, user_id=user_id
         )
     except OperationalError:

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import User
-from src.vortex.shared.database import check_exists, create, get_one_by_query
+from src.vortex.shared.database import check_exists, create, get_all, get_one_by_query
 
 
 class UserRepository:
@@ -23,3 +23,10 @@ class UserRepository:
         qry = select(User).where(User.email == email, User.is_active == True)
 
         return await get_one_by_query(qry, db_session)
+
+    @staticmethod
+    async def get_by_ids(db_session: AsyncSession, user_ids: list[UUID]) -> list[User]:
+        if not user_ids:
+            return []
+        q = select(User).where(User.id.in_(user_ids), User.is_active == True)
+        return await get_all(stmt=q, db_session=db_session)

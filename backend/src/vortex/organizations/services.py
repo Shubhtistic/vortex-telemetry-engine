@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .schemas import InviteMemberRequest, SignupRequest
+from .schemas import InviteMemberRequest, MembershipRead, OrgMemberRead, SignupRequest
 from src.vortex.users.services import UserService
 from src.vortex.auth.password import hash_password
 from .models import Organization, OrganizationMembership
@@ -13,6 +13,7 @@ from .exceptions import (
     NotAMemberError,
     CannotInviteRootAccountError,
     UserAlreadyMemberError,
+    UserCannotBeDeletedError,
 )
 
 
@@ -21,7 +22,7 @@ class OrganizationService:
     async def signup(
         db_session: AsyncSession,
         signup_data: SignupRequest,
-    ) -> OrganizationMembership:
+    ) -> dict:
 
         # step 1 -> slug must be free
         if await OrganizationRepository.check_by_slug(
@@ -56,7 +57,7 @@ class OrganizationService:
         )
 
         # return Membership Orm Object
-        return membership
+        return MembershipRead.model_validate(membership).model_dump()
 
     @staticmethod
     async def invite_member(
@@ -64,7 +65,7 @@ class OrganizationService:
         payload: InviteMemberRequest,
         org_id: UUID,
         invited_by_user_id: UUID,
-    ) -> OrganizationMembership:
+    ) -> dict:
 
         row = await MembershipRepository.get_invite_precheck_row(
             db_session=db_session, email=payload.email, org_id=org_id
@@ -98,7 +99,7 @@ class OrganizationService:
             invited_by_user_id=invited_by_user_id,
         )
 
-        return new_membership
+        return MembershipRead.model_validate(new_membership).model_dump()
 
     @staticmethod
     async def get_by_slug(db_session: AsyncSession, slug: str) -> Organization:
@@ -116,27 +117,67 @@ class MembershipService:
         user_id: UUID,
         role: InviteMembershipRole,
         invited_by_user_id: UUID,
-    ):
+    ) -> OrganizationMembership:
 
-        new_membership = OrganizationMembership(
+        new_membership_instance = OrganizationMembership(
             organization_id=organization_id,
             user_id=user_id,
             role=role,
             invited_by_user_id=invited_by_user_id,
         )
 
-        await MembershipRepository.create_membership(
-            db_session=db_session, instance=new_membership
+        new_membership = await MembershipRepository.create_membership(
+            db_session=db_session, instance=new_membership_instance
         )
         return new_membership
 
     @staticmethod
-    async def get_membership(
+    async def get_active_membership(
         db_session: AsyncSession, org_id: UUID, user_id: UUID
     ) -> OrganizationMembership:
-        membership = await MembershipRepository.get_membership(
+        membership = await MembershipRepository.get_active_membership(
             db_session=db_session, org_id=org_id, user_id=user_id
         )
         if membership is None:
             raise NotAMemberError(org_id=org_id, user_id=user_id)
         return membership
+
+    @staticmethod
+    async def get_all_active_org_members(
+        org_id: UUID, db_session: AsyncSession, limit: int, page_num: int
+    ) -> tuple[list[dict], int]:
+        offset = (page_num - 1) * limit
+
+        memberships, total_count = await MembershipRepository.get_all_active_members(
+            org_id, db_session, offset, limit
+        )
+        if not total_count:
+            return [], 0
+
+        users_by_id = await UserService.get_users_by_ids(
+            db_session=db_session, user_ids=[m.user_id for m in memberships]
+        )
+
+        data = [
+            OrgMemberRead(
+                user_id=m.user_id,
+                role=m.role,
+                email=users_by_id[m.user_id].email,
+                first_name=users_by_id[m.user_id].first_name,
+                last_name=users_by_id[m.user_id].last_name,
+            ).model_dump()
+            for m in memberships
+            if m.user_id in users_by_id
+        ]
+        return data, total_count
+
+    @staticmethod
+    async def deactivate_member(
+        db_session: AsyncSession, org_id: UUID, target_user_id: UUID
+    ) -> UUID | str:
+        if deleted_id := await MembershipRepository.deactivate_member(
+            db_session=db_session, org_id=org_id, user_id=target_user_id
+        ):
+            return deleted_id
+
+        raise UserCannotBeDeletedError

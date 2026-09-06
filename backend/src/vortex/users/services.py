@@ -1,6 +1,9 @@
 from typing import Optional
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.vortex.users.schemas import UserResponse
 
 from .models import User
 from .repository import UserRepository
@@ -34,3 +37,14 @@ class UserService:
             raise UserNotFoundError(identifier=email)
 
         return user
+
+    @staticmethod
+    async def get_users_by_ids(
+        db_session: AsyncSession, user_ids: list[UUID]
+    ) -> dict[UUID, UserResponse]:
+
+        users = await UserRepository.get_by_ids(
+            db_session=db_session, user_ids=user_ids
+        )
+
+        return {u.id: UserResponse.model_validate(u) for u in users}

@@ -1,17 +1,23 @@
-from fastapi import APIRouter
+from uuid import UUID
 
-from src.vortex.shared.schemas import ApiResponseSchema
+from fastapi import APIRouter, Query
+
 from src.vortex.shared.database import DbSessionDep, get_session_factory
 from src.vortex.shared.responses import ApiResponse
 from src.vortex.users.exceptions import UserAlreadyExistsError
-from src.vortex.auth.dependencies import VerifiedAdminDep
+from src.vortex.auth.dependencies import (
+    CurrentUserDep,
+    VerifiedAdminDep,
+    VerifiedOwnerDep,
+)
 
-from .services import OrganizationService
+from .services import MembershipService, OrganizationService
 from .schemas import SignupRequest, InviteMemberRequest
 from .exceptions import (
     OrganizationAlreadyExistsError,
     CannotInviteRootAccountError,
     UserAlreadyMemberError,
+    UserCannotBeDeletedError,
 )
 
 router = APIRouter(prefix="/organizations", tags=["organizations"])
@@ -23,7 +29,7 @@ async def signup(payload: SignupRequest):
     async with session_factory() as db_session:
         try:
             # payload auto validated
-            result = await OrganizationService.signup(
+            membership_dict = await OrganizationService.signup(
                 db_session=db_session, signup_data=payload
             )
             # commit
@@ -39,10 +45,7 @@ async def signup(payload: SignupRequest):
     return ApiResponse.success(
         message="Organization created",
         code=201,
-        data={
-            "organization_id": result.organization_id,
-            "user_id": result.user_id,
-        },
+        data=membership_dict,
     )
 
 
@@ -53,7 +56,7 @@ async def invite_member(
     db_session: DbSessionDep,
 ):
     try:
-        membership = await OrganizationService.invite_member(
+        membership_dict_data = await OrganizationService.invite_member(
             db_session=db_session,
             payload=payload,
             org_id=current_user.get("org_id"),
@@ -65,5 +68,60 @@ async def invite_member(
             code=409,
         )
     return ApiResponse.success(
-        message="Member invited", code=201, data={"membership_id": str(membership.id)}
+        message="Member invited",
+        code=201,
+        data=membership_dict_data,
+    )
+
+
+@router.get("/members")
+async def get_all_members(
+    db_session: DbSessionDep,
+    current_user: CurrentUserDep,
+    limit: int = Query(10, ge=1, le=50),
+    page_num: int = Query(1, ge=1),
+):
+    org_id = current_user["org_id"]
+
+    data, total_count = await MembershipService.get_all_active_org_members(
+        org_id=org_id,
+        db_session=db_session,
+        limit=limit,
+        page_num=page_num,
+    )
+
+    total_pages = (total_count + limit - 1) // limit if total_count else 0
+
+    return ApiResponse.success(
+        message="org members fetched",
+        data=data,
+        meta={
+            "limit": limit,
+            "page_num": page_num,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        },
+    )
+
+
+@router.delete("/members/{user_id}")
+async def deactivate_member(
+    user_id: UUID,
+    db_session: DbSessionDep,
+    current_user: VerifiedOwnerDep,
+):
+
+    try:
+
+        deleted_id = await MembershipService.deactivate_member(
+            db_session=db_session,
+            org_id=current_user["org_id"],
+            target_user_id=user_id,
+        )
+
+    except UserCannotBeDeletedError:
+        return ApiResponse.error(message="This User Could not be deleted be Deleted")
+
+    return ApiResponse.success(
+        message="member deactivated", data={"user_id": deleted_id}
     )

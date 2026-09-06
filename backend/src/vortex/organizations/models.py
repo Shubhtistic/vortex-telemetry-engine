@@ -2,7 +2,7 @@ from typing import Optional
 from datetime import datetime, timezone
 from uuid import UUID, uuid7
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, DateTime, ForeignKey, Index, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Index, UniqueConstraint, text
 
 from .enums import MembershipRole
 
@@ -59,28 +59,25 @@ class OrganizationMembership(SQLModel, table=True):
 
     __table_args__ = (
         # a user can only hold one ACTIVE membership row per org
-        # (removed members can be re-invited — old inactive row no longer blocks it)
         Index(
             "uq_org_user_active",
             "organization_id",
             "user_id",
             unique=True,
-            postgresql_where=Column("is_active") == True,
+            postgresql_where=text("is_active = true"),
         ),
         # only one ACTIVE owner per org
         Index(
             "uq_one_owner_per_org",
             "organization_id",
             unique=True,
-            postgresql_where=(Column("role") == "owner")
-            & (Column("is_active") == True),
+            postgresql_where=text("role = 'owner' AND is_active = true"),
         ),
-        # an email/user can be an ACTIVE owner in at most one org, globally
+        # a user can be ACTIVE owner in at most one org globally
         Index(
             "uq_owner_globally_unique_per_user",
             "user_id",
             unique=True,
-            postgresql_where=(Column("role") == "owner")
-            & (Column("is_active") == True),
+            postgresql_where=text("role = 'owner' AND is_active = true"),
         ),
     )
