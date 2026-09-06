@@ -17,7 +17,7 @@ from .exceptions import (
 router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
-@router.post("/signup", response_model=ApiResponseSchema)
+@router.post("/signup")
 async def signup(payload: SignupRequest):
     session_factory = get_session_factory()
     async with session_factory() as db_session:
@@ -46,7 +46,7 @@ async def signup(payload: SignupRequest):
     )
 
 
-@router.post("/invite", response_model=ApiResponseSchema)
+@router.post("/invite")
 async def invite_member(
     payload: InviteMemberRequest,
     current_user: VerifiedAdminDep,

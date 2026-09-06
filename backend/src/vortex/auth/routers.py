@@ -21,7 +21,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 REFRESH_COOKIE_PATH = "/auth"
 
 
-@router.post("/login", response_model=ApiResponseSchema)
+@router.post("/login")
 async def login(payload: LoginRequest, db_session: DbSessionDep, response: Response):
 
     try:
@@ -51,7 +51,7 @@ async def login(payload: LoginRequest, db_session: DbSessionDep, response: Respo
     return response
 
 
-@router.post("/refresh", response_model=ApiResponseSchema)
+@router.post("/refresh")
 async def refresh(
     response: Response,
     db_session: DbSessionDep,
@@ -100,7 +100,7 @@ async def refresh(
     return response
 
 
-@router.post("/logout", response_model=ApiResponseSchema)
+@router.post("/logout", status_code=204)
 async def logout(
     response: Response,
     db_session: DbSessionDep,
@@ -108,7 +108,6 @@ async def logout(
     refresh_token: str | None = Cookie(default=None, alias="refresh_token"),
 ):
     # --- delete the cookie ---
-    response = ApiResponse.success(message="Logged Out", code=204)
     if refresh_token:
         response.delete_cookie(key="refresh_token", path=REFRESH_COOKIE_PATH)
 
@@ -125,4 +124,4 @@ async def logout(
         ttl_seconds=ttl_seconds,
     )
 
-    return response
+    return Response(status_code=204, headers=response.headers)
