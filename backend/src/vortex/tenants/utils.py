@@ -2,6 +2,7 @@ import secrets
 
 from blake3 import blake3
 
+from backend.src.vortex.shared.redis_client import get_redis
 from src.vortex.shared.config import get_settings
 
 # ======= UTILITY FUNCTIONS =========
@@ -22,3 +23,13 @@ def create_api_key() -> str:
     random_part = secrets.token_urlsafe(32)
 
     return api_key_prefix + random_part
+
+
+async def remove_api_key_from_cache(hashed_api_key: str) -> bool:
+    """removes the hashed key from cache, return true if deleted"""
+
+    redis = get_redis()
+
+    # exists check + delete - delete is idempotent anyway
+    deleted = await redis.delete(hashed_api_key)
+    return deleted > 0

@@ -45,3 +45,10 @@ class ApiKeyRead(BaseModel):
     api_key_slug: str
     api_key_raw_preview: str
     status: ApiKeyStatus
+
+
+# --- rotate a api key ---
+class ApiKeyRotateRequest(BaseModel):
+    api_key_id: str
+    tenant_id: str
+    api_key_slug: str = Field(min_length=1, max_length=20)

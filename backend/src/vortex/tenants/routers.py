@@ -1,13 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from vortex.shared.schemas import ApiResponseSchema
 from src.vortex.shared.responses import ApiResponse
 from src.vortex.shared.database import DbSessionDep
 from src.vortex.auth.dependencies import CurrentUserDep, VerifiedAdminDep
 
-from .exceptions import SlugAlreadyExistsErorr
+from .exceptions import ApiKeyAlreadyNonActiveError, SlugAlreadyExistsErorr
 from .services import ApiKeyService, TenantService
-from .schemas import CreateApiKeyRequest, CreateTenantRequest
+from .schemas import ApiKeyRotateRequest, CreateApiKeyRequest, CreateTenantRequest
 
 # --- router ---
 router = APIRouter(tags=["Tenants"])
@@ -17,9 +17,11 @@ router = APIRouter(tags=["Tenants"])
 
 
 # --- create tenants ---
-@router.post("/tenants", response_model=ApiResponseSchema)
+@router.post("/tenants")
 async def create_tenant(
-    payload: CreateTenantRequest, db_session: DbSessionDep, user_data: VerifiedAdminDep
+    payload: CreateTenantRequest,
+    db_session: DbSessionDep,
+    user_data: VerifiedAdminDep,
 ):
 
     # call service to save
@@ -38,22 +40,41 @@ async def create_tenant(
 
 
 # --- get all tenants ---
-@router.get("/tenants", response_model=ApiResponseSchema)
-async def get_all_tenants(db_session: DbSessionDep, user_data: CurrentUserDep):
+@router.get("/tenants")
+async def get_all_tenants(
+    db_session: DbSessionDep,
+    user_data: CurrentUserDep,
+    limit: int = Query(10, ge=1, le=50, description="items per page"),
+    page_num: int = Query(1, ge=1, description="current page num"),
+):
 
-    tenants_dict = await TenantService.get_all_tenants(
-        org_id=user_data.get("org_id"), db_session=db_session
+    # get tenants data with thier count
+    tenants_dict, total_count = await TenantService.get_all_tenants(
+        org_id=user_data.get("org_id"),
+        db_session=db_session,
+        limit=limit,
+        page_num=page_num,
     )
 
+    # total pages
+    total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
+
     return ApiResponse.success(
-        message="successfully fetched tenants", data=tenants_dict
+        message="successfully fetched tenants",
+        data=tenants_dict,
+        meta={
+            "limit": limit,
+            "page_num": page_num,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        },
     )
 
 
 # ====== Api Key Routers ======
 
 
-@router.post("/tenants/api-key", response_model=ApiResponseSchema)
+@router.post("/tenants/api-key")
 async def create_an_api_key(
     payload: CreateApiKeyRequest,
     db_session: DbSessionDep,
@@ -75,12 +96,77 @@ async def create_an_api_key(
     )
 
 
-@router.get("/tenants/api-key", response_model=ApiResponseSchema)
-async def get_all_api_keys(db_session: DbSessionDep, user_data: CurrentUserDep):
+@router.get("/tenants/api-keys")
+async def get_all_api_keys(
+    tenant_id: str,
+    db_session: DbSessionDep,
+    user_data: CurrentUserDep,
+    limit: int = Query(10, ge=1, le=50, description="items per page"),
+    page_num: int = Query(1, ge=1, description="current page num"),
+):
 
-    api_keys_dict = await ApiKeyService.get_all_api_keys(
-        tenant_id="pending", db_session=db_session
+    api_keys_dict, total_count = await ApiKeyService.get_all_api_keys(
+        tenant_id=tenant_id,
+        db_session=db_session,
+        limit=limit,
+        page_num=page_num,
     )
+
+    total_pages = (total_count + limit - 1) // limit if total_count > 0 else 0
+
     return ApiResponse.success(
-        message="successfully fetched api keys", data=api_keys_dict
+        message="successfully fetched api keys",
+        data=api_keys_dict,
+        meta={
+            "page_num": page_num,
+            "limit": limit,
+            "total_count": total_count,
+            "total_pages": total_pages,
+        },
+    )
+
+
+@router.delete("/tenants/{tenant_id}/api-keys/{api_key_id}", status_code=204)
+async def revoke_api_key(
+    tenant_id: str,
+    api_key_id: str,
+    db_session: DbSessionDep,
+    user_data: VerifiedAdminDep,
+):
+    # call service to delete the api_key_id
+    try:
+        await ApiKeyService.revoke_api_key(
+            tenant_id=tenant_id, api_key_id=api_key_id, db_session=db_session
+        )
+    except ApiKeyAlreadyNonActiveError:
+        return ApiResponse.error(
+            message="This Key is already revoked or it may already be in grace period",
+            code=409,
+        )
+
+
+@router.post("/tenants/api-keys/rotate")
+async def rotate_api_key(
+    payload: ApiKeyRotateRequest,
+    db_session: DbSessionDep,
+    user_data: VerifiedAdminDep,
+):
+    try:
+        result_dict = await ApiKeyService.rotate_api_key(
+            org_id=user_data.get("org_id"),
+            user_id=user_data.get("user_id"),
+            payload=payload,
+            db_session=db_session,
+        )
+    except ApiKeyAlreadyNonActiveError:
+        return ApiResponse.error(
+            code=409, message="The key is already revoked or is in grace period"
+        )
+
+    except SlugAlreadyExistsErorr:
+        return ApiResponse.error(code=409, message="The key slug is already taken")
+
+    return ApiResponse.success(
+        data=result_dict,
+        message="Api key created successfully. Please copy the api key and store it securely. It will not be shown again.",
     )
