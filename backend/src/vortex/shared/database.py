@@ -87,7 +87,7 @@ async def get_all(
 ) -> list[Model]:
     """Fetch all rows. Pass pre-built query statement from upper layer."""
     result = await db_session.execute(stmt)
-    return list(result.scalars().all())
+    return result.scalars().all()
 
 
 async def delete_by_id(
