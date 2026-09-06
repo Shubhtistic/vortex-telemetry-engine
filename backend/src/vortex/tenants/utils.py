@@ -2,7 +2,7 @@ import secrets
 
 from blake3 import blake3
 
-from backend.src.vortex.shared.redis_client import get_redis
+from src.vortex.shared.redis_client import get_redis
 from src.vortex.shared.config import get_settings
 
 # ======= UTILITY FUNCTIONS =========

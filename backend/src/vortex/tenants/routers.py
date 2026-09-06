@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Query
 
-from vortex.shared.schemas import ApiResponseSchema
 from src.vortex.shared.responses import ApiResponse
 from src.vortex.shared.database import DbSessionDep
 from src.vortex.auth.dependencies import CurrentUserDep, VerifiedAdminDep
