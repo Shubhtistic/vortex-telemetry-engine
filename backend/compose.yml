@@ -38,7 +38,9 @@ services:
     #       cpus: '0.25'
 
   fastapi:
-    build: .
+    build:
+      context: .
+      target: builder
     command: ["uvicorn", "src.vortex.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports:
       - "8000:8000"
@@ -46,6 +48,9 @@ services:
       - .env
     volumes:
       - ./src:/vortex/src
+      - ./alembic:/vortex/alembic
+      - ./alembic.ini:/vortex/alembic.ini
+      - /vortex/.venv
     # deploy:
     #   resources:
     #     reservations:
@@ -58,7 +63,6 @@ services:
         condition: service_completed_successfully  # migrations must finish before api starts
       redis:
         condition: service_started 
-
 
 volumes:
   vortex_pg_data:

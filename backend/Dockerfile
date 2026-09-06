@@ -10,6 +10,11 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/vortex/.venv
 
+ENV PATH="/vortex/.venv/bin:$PATH" \
+    PYTHONPATH="/vortex" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /vortex
 
 # as long as pyproject.toml/uv.lock don't change, Docker reuses this
@@ -25,7 +30,6 @@ COPY alembic.ini ./
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
-
 
 # Stage 2: Runtime
 FROM python:3.14-slim AS runtime
@@ -44,7 +48,8 @@ COPY --from=builder --chown=vortex:vortex /vortex/alembic.ini ./
 
 ENV PATH="/vortex/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/vortex"
 
 USER vortex
 
@@ -53,4 +58,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
 
-CMD ["uvicorn", "vortex.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "src.vortex.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
