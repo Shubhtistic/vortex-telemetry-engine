@@ -15,7 +15,7 @@ export default function Navbar() {
   }, [])
 
   const pillClass = `mx-auto transition-all duration-300 max-w-5xl px-8 ${
-    isScrolled ? "bg-white/5 backdrop-blur-[24px] rounded-full mt-4" : "bg-transparent mt-0"
+    isScrolled ? "bg-white/5 backdrop-blur-[24px] rounded-full mt-6" : "bg-transparent mt-2"
   }`
 
   return (

@@ -291,8 +291,8 @@ export default function WorldMap({
               initial={{ pathLength: 0, opacity: 0 }}
               animate={{ pathLength: 1, opacity: 1 }}
               transition={{
-                duration: 1.0,
-                delay: 1.0 + i * 0.2,
+                duration: 0.8,
+                delay: 0.3 + i * 0.1,
                 ease: "easeInOut",
               }}
             />

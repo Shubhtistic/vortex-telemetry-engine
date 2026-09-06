@@ -1,11 +1,15 @@
 import axios, { type AxiosInstance, type InternalAxiosRequestConfig } from "axios"
 import { isValidJwtFormat } from "./validation"
 
+declare module "axios" {
+  export interface AxiosError<T = unknown> {
+    frontendMessage?: string
+  }
+}
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL
 if (!BASE_URL) {
-  throw new Error(
-    "NEXT_PUBLIC_API_URL is not set. Add it to .env or Vercel dashboard."
-  )
+  throw new Error("NEXT_PUBLIC_API_URL is not set. Add it to .env or Vercel dashboard.")
 }
 
 let currentAccessToken: string | null = null
@@ -90,6 +94,23 @@ api.interceptors.response.use(
       } finally {
         isRefreshing = false
       }
+    }
+
+    if (error.response?.status === 422) {
+      const body = error.response.data
+      const messages: string[] = []
+      if (body?.meta?.errors) {
+        for (const err of body.meta.errors as { loc: (string | number)[]; msg: string }[]) {
+          const field = (err.loc.find((l): l is string => typeof l === "string") ?? "").replace(
+            ".",
+            " "
+          )
+          messages.push(field ? `${field}: ${err.msg}` : err.msg)
+        }
+      } else if (body?.message) {
+        messages.push(body.message)
+      }
+      error.frontendMessage = messages.join("\n")
     }
 
     return Promise.reject(error)
