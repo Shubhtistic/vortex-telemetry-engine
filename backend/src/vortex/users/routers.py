@@ -8,7 +8,7 @@ from .services import UserService
 from .exceptions import UserNotFoundError
 
 # --- router ---
-router = APIRouter(prefix="/users")
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
 # --- /me for user ----
