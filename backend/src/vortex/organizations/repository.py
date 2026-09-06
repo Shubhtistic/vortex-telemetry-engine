@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 from sqlalchemy import func, literal_column, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,15 @@ class OrganizationRepository:
         )
 
         return await get_one_by_query(stmt, db_session)
+
+    @staticmethod
+    async def get_org_by_id(
+        org_id: UUID, db_session: AsyncSession
+    ) -> Optional[Organization]:
+        qry = select(Organization).where(
+            Organization.id == org_id, Organization.is_active == True
+        )
+        return await get_one_by_query(qry, db_session)
 
 
 class MembershipRepository:

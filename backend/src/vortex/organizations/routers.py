@@ -16,6 +16,7 @@ from .schemas import SignupRequest, InviteMemberRequest
 from .exceptions import (
     OrganizationAlreadyExistsError,
     CannotInviteRootAccountError,
+    OrganizationNotFoundError,
     UserAlreadyMemberError,
     UserCannotBeDeletedError,
 )
@@ -72,6 +73,18 @@ async def invite_member(
         code=201,
         data=membership_dict_data,
     )
+
+
+@router.get("/me")
+async def get_org_info(db_session: DbSessionDep, current_user: CurrentUserDep):
+    try:
+        data = await OrganizationService.get_org_info_by_id(
+            org_id=current_user.get("org_id"), db_session=db_session
+        )
+    except OrganizationNotFoundError:
+        return ApiResponse.error(message="Organization not found", status_code=404)
+
+    return ApiResponse.success(message="Organization fetched Successfully", data=data)
 
 
 @router.get("/members")

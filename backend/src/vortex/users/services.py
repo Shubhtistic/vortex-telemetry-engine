@@ -48,3 +48,13 @@ class UserService:
         )
 
         return {u.id: UserResponse.model_validate(u) for u in users}
+
+    @staticmethod
+    async def get_user_info_by_id(user_id: UUID, db_session: AsyncSession) -> dict:
+        user = await UserRepository.get_user_by_id(
+            user_id=user_id, db_session=db_session
+        )
+        if not user:
+            raise UserNotFoundError(identifier=str(user_id))
+
+        return UserResponse.model_validate(user).model_dump()

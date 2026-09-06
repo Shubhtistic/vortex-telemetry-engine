@@ -1,7 +1,13 @@
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .schemas import InviteMemberRequest, MembershipRead, OrgMemberRead, SignupRequest
+from .schemas import (
+    InviteMemberRequest,
+    MembershipRead,
+    OrgMemberRead,
+    OrganizationResponse,
+    SignupRequest,
+)
 from src.vortex.users.services import UserService
 from src.vortex.auth.password import hash_password
 from .models import Organization, OrganizationMembership
@@ -107,6 +113,16 @@ class OrganizationService:
         if org is None:
             raise OrganizationNotFoundError(identifier=slug)
         return org
+
+    @staticmethod
+    async def get_org_info_by_id(org_id: UUID, db_session: AsyncSession) -> dict:
+        org = await OrganizationRepository.get_org_by_id(
+            org_id=org_id, db_session=db_session
+        )
+        if not org:
+            raise OrganizationNotFoundError(identifier=str(org_id))
+
+        return OrganizationResponse.model_validate(org).model_dump()
 
 
 class MembershipService:

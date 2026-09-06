@@ -37,3 +37,13 @@ class OrgMemberRead(BaseModel):
     email: EmailStr
     first_name: str
     last_name: str
+
+
+class OrganizationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    slug: str
+    is_active: bool
+    created_at: datetime
