@@ -82,7 +82,7 @@ async def get_org_info(db_session: DbSessionDep, current_user: CurrentUserDep):
             org_id=current_user.get("org_id"), db_session=db_session
         )
     except OrganizationNotFoundError:
-        return ApiResponse.error(message="Organization not found", status_code=404)
+        return ApiResponse.error(message="Organization not found", code=404)
 
     return ApiResponse.success(message="Organization fetched Successfully", data=data)
 

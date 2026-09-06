@@ -125,7 +125,7 @@ class ApiKeyService:
 
         # call repo to get results
 
-        api_keys, total_count = await ApiKeyRepository.get_all(
+        api_keys, total_count = await ApiKeyRepository.get_all_api_keys(
             tenant_id=tenant_id, db_session=db_session, offset=offset, limit=limit
         )
 
